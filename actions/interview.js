@@ -1,5 +1,6 @@
 "use server";
 
+import { checkUser } from "@/lib/checkUser";
 import { db } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -7,12 +8,15 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
-export async function generateQuiz() {
+export async function generateQuiz(selectedIndustry) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
+  const baseUser = await checkUser();
+  if (!baseUser) throw new Error("User not found");
+
   const user = await db.user.findUnique({
-    where: { clerkUserId: userId },
+    where: { id: baseUser.id },
     select: {
       industry: true,
       skills: true,
@@ -20,6 +24,8 @@ export async function generateQuiz() {
   });
 
   if (!user) throw new Error("User not found");
+
+  const quizIndustry = selectedIndustry || user.industry || "General";
 
   // Using mock quiz data - replace with real Gemini API when model access is available
   const mockQuestions = [
@@ -85,18 +91,22 @@ export async function generateQuiz() {
     }
   ];
 
-  return mockQuestions;
+  return mockQuestions.map((question) => ({
+    ...question,
+    industry: quizIndustry,
+  }));
 }
 
-export async function saveQuizResult(questions, answers, score) {
+export async function saveQuizResult(questions, answers, score, selectedIndustry) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
-  const user = await db.user.findUnique({
-    where: { clerkUserId: userId },
-  });
+  const user = await checkUser();
 
   if (!user) throw new Error("User not found");
+
+  const quizIndustry =
+    selectedIndustry || questions?.[0]?.industry || user.industry || "General";
 
   const questionResults = questions.map((q, index) => ({
     question: q.question,
@@ -120,7 +130,7 @@ export async function saveQuizResult(questions, answers, score) {
       .join("\n\n");
 
     const improvementPrompt = `
-      The user got the following ${user.industry} technical interview questions wrong:
+      The user got the following ${quizIndustry} technical interview questions wrong:
 
       ${wrongQuestionsText}
 
@@ -147,7 +157,7 @@ export async function saveQuizResult(questions, answers, score) {
         userId: user.id,
         quizScore: score,
         questions: questionResults,
-        category: "Technical",
+        category: `Technical - ${quizIndustry}`,
         improvementTip,
       },
     });
@@ -163,9 +173,7 @@ export async function getAssessments() {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
-  const user = await db.user.findUnique({
-    where: { clerkUserId: userId },
-  });
+  const user = await checkUser();
 
   if (!user) throw new Error("User not found");
 

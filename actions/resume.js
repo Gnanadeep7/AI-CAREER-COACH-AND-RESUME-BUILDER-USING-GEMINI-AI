@@ -1,6 +1,7 @@
 "use server";
 
 import { resumeSchema } from "@/app/lib/schema";
+import { checkUser } from "@/lib/checkUser";
 import { db } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -23,9 +24,7 @@ export async function saveResume({ content, data }) {
     throw new Error("Resume content is required");
   }
 
-  const user = await db.user.findUnique({
-    where: { clerkUserId: userId },
-  });
+  const user = await checkUser();
 
   if (!user) throw new Error("User not found");
 
@@ -55,9 +54,7 @@ export async function getResume() {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
-  const user = await db.user.findUnique({
-    where: { clerkUserId: userId },
-  });
+  const user = await checkUser();
 
   if (!user) throw new Error("User not found");
 
@@ -72,8 +69,11 @@ export async function improveWithAI({ current, type }) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
+  const baseUser = await checkUser();
+  if (!baseUser) throw new Error("User not found");
+
   const user = await db.user.findUnique({
-    where: { clerkUserId: userId },
+    where: { id: baseUser.id },
     include: {
       industryInsight: true,
     },

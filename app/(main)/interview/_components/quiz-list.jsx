@@ -17,11 +17,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import QuizResult from "./quiz-result";
 
-export default function QuizList({ assessments }) {
+export default function QuizList({ assessments, industries }) {
   const router = useRouter();
   const [selectedQuiz, setSelectedQuiz] = useState(null);
+  const [selectedIndustry, setSelectedIndustry] = useState("");
 
   return (
     <>
@@ -36,9 +44,38 @@ export default function QuizList({ assessments }) {
                 Review your past quiz performance
               </CardDescription>
             </div>
-            <Button onClick={() => router.push("/interview/mock")}>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center">
+              <div className="w-full md:w-72">
+                <Select
+                  value={selectedIndustry}
+                  onValueChange={setSelectedIndustry}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose quiz industry" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {industries.map((industry) => (
+                      <SelectItem key={industry.id} value={industry.name}>
+                        {industry.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                onClick={() =>
+                  router.push(
+                    selectedIndustry
+                      ? `/interview/mock?industry=${encodeURIComponent(
+                          selectedIndustry
+                        )}`
+                      : "/interview/mock"
+                  )
+                }
+              >
               Start New Quiz
-            </Button>
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -54,7 +91,10 @@ export default function QuizList({ assessments }) {
                     Quiz {i + 1}
                   </CardTitle>
                   <CardDescription className="flex justify-between w-full">
-                    <div>Score: {assessment.quizScore.toFixed(1)}%</div>
+                    <div className="space-y-1">
+                      <div>Score: {assessment.quizScore.toFixed(1)}%</div>
+                      <div>{assessment.category}</div>
+                    </div>
                     <div>
                       {format(
                         new Date(assessment.createdAt),

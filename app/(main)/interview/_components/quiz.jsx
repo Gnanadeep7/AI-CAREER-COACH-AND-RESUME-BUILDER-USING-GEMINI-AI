@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,14 +14,24 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { generateQuiz, saveQuizResult } from "@/actions/interview";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import QuizResult from "./quiz-result";
 import useFetch from "@/hooks/use-fetch";
 import { BarLoader } from "react-spinners";
 
-export default function Quiz() {
+export default function Quiz({ industries }) {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState([]);
   const [showExplanation, setShowExplanation] = useState(false);
+  const searchParams = useSearchParams();
+  const initialIndustry = searchParams.get("industry") || "";
+  const [selectedIndustry, setSelectedIndustry] = useState(initialIndustry);
 
   const {
     loading: generatingQuiz,
@@ -69,7 +80,7 @@ export default function Quiz() {
   const finishQuiz = async () => {
     const score = calculateScore();
     try {
-      await saveQuizResultFn(quizData, answers, score);
+      await saveQuizResultFn(quizData, answers, score, selectedIndustry);
       toast.success("Quiz completed!");
     } catch (error) {
       toast.error(error.message || "Failed to save quiz results");
@@ -80,7 +91,7 @@ export default function Quiz() {
     setCurrentQuestion(0);
     setAnswers([]);
     setShowExplanation(false);
-    generateQuizFn();
+    generateQuizFn(selectedIndustry);
     setResultData(null);
   };
 
@@ -103,14 +114,29 @@ export default function Quiz() {
         <CardHeader>
           <CardTitle>Ready to test your knowledge?</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <p className="text-muted-foreground">
             This quiz contains 10 questions specific to your industry and
             skills. Take your time and choose the best answer for each question.
           </p>
+          <div className="space-y-2">
+            <Label>Industry</Label>
+            <Select value={selectedIndustry} onValueChange={setSelectedIndustry}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select an industry for this quiz" />
+              </SelectTrigger>
+              <SelectContent>
+                {industries.map((industry) => (
+                  <SelectItem key={industry.id} value={industry.name}>
+                    {industry.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardContent>
         <CardFooter>
-          <Button onClick={generateQuizFn} className="w-full">
+          <Button onClick={() => generateQuizFn(selectedIndustry)} className="w-full">
             Start Quiz
           </Button>
         </CardFooter>
@@ -126,6 +152,9 @@ export default function Quiz() {
         <CardTitle>
           Question {currentQuestion + 1} of {quizData.length}
         </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Industry: {selectedIndustry || quizData[0]?.industry || "General"}
+        </p>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-lg font-medium">{question.question}</p>

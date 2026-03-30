@@ -1,5 +1,6 @@
 "use server";
 
+import { checkUser } from "@/lib/checkUser";
 import { db } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -30,8 +31,11 @@ export async function getIndustryInsights() {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
+  const baseUser = await checkUser();
+  if (!baseUser) throw new Error("User not found");
+
   const user = await db.user.findUnique({
-    where: { clerkUserId: userId },
+    where: { id: baseUser.id },
     include: {
       industryInsight: true,
     },
