@@ -5,128 +5,128 @@ import { db } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+if (!process.env.GEMINI_API_KEY) {
+  throw new Error("GEMINI_API_KEY is missing");
+}
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-const fallbackQuestions = [
+const shuffleArray = (arr) => {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+};
+
+const buildFallbackQuestions = (quizIndustry) => [
   {
-    question: "What is a key principle in software development?",
+    question: `In ${quizIndustry}, which KPI best measures long-term profitability?`,
     options: [
-      "DRY (Don't Repeat Yourself)",
-      "WET (Write Everything Twice)",
-      "CHAOS (Code by Haphazard)",
-      "MESS (Make Each Section Separate)",
+      "Customer Lifetime Value (CLV)",
+      "CPU Utilization",
+      "Server Memory Speed",
+      "Number of Code Commits",
     ],
-    correctAnswer: "DRY (Don't Repeat Yourself)",
-    explanation:
-      "DRY is a fundamental principle that encourages code reuse and reduces redundancy, making code more maintainable.",
+    correctAnswer: "Customer Lifetime Value (CLV)",
+    explanation: "CLV captures recurring revenue and retention impact for the industry.",
   },
   {
-    question: "Which design pattern is used to create a single instance of a class?",
-    options: ["Factory", "Singleton", "Observer", "Adapter"],
-    correctAnswer: "Singleton",
-    explanation:
-      "The Singleton pattern ensures that a class has only one instance and provides a global point of access to it.",
-  },
-  {
-    question: "What does SOLID stand for in software architecture?",
+    question: `What tactic most directly reduces churn in ${quizIndustry}?`,
     options: [
-      "Structured, Organized, Logical, Integrated, Designed",
-      "Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion",
-      "Simple, Optional, Linear, Immediate, Dynamic",
-      "Scalable, Optimized, Low-cost, Integrated, Distributed",
+      "Proactive support for at-risk customers",
+      "Adding more signup fields",
+      "Increasing CAPTCHA difficulty",
+      "Longer shipping windows",
     ],
-    correctAnswer:
-      "Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion",
-    explanation:
-      "SOLID is a set of five design principles that help make software more maintainable, flexible, and scalable.",
+    correctAnswer: "Proactive support for at-risk customers",
+    explanation: "Early intervention keeps customers engaged and reduces churn.",
   },
   {
-    question: "What is the primary benefit of unit testing?",
+    question: `Which metric is the clearest signal of conversion health in ${quizIndustry}?`,
     options: [
-      "Increases code lines",
-      "Catches bugs early",
-      "Slows development",
-      "Makes code slower",
+      "Cart-to-checkout rate",
+      "Number of backend threads",
+      "Average SQL query time",
+      "Compiler warning count",
     ],
-    correctAnswer: "Catches bugs early",
-    explanation:
-      "Unit testing helps identify and fix bugs early in the development process, reducing costs and improving quality.",
+    correctAnswer: "Cart-to-checkout rate",
+    explanation: "It shows how effectively intent turns into purchases.",
   },
   {
-    question: "Which of the following best describes refactoring?",
+    question: `What customer data is most actionable for personalization in ${quizIndustry}?`,
     options: [
-      "Adding new features",
-      "Improving code structure without changing behavior",
-      "Rewriting from scratch",
-      "Deleting old code",
+      "Recent browsing and purchase history",
+      "CPU cache size",
+      "Data center square footage",
+      "IDE theme preference",
     ],
-    correctAnswer: "Improving code structure without changing behavior",
-    explanation:
-      "Refactoring is the process of restructuring code to improve readability and maintainability while preserving functionality.",
+    correctAnswer: "Recent browsing and purchase history",
+    explanation: "Behavioral signals drive relevant recommendations.",
   },
   {
-    question: "What does REST stand for?",
+    question: `Which lever best improves average order value in ${quizIndustry}?`,
     options: [
-      "Remote Execution Service Technology",
-      "Representational State Transfer",
-      "Rapid Electronic Software Transfer",
-      "Resource Execution and Service Technology",
+      "Contextual bundles and cross-sells",
+      "Reducing payment options",
+      "Removing product photos",
+      "Longer checkout forms",
     ],
-    correctAnswer: "Representational State Transfer",
-    explanation:
-      "REST is an architectural style for designing networked applications using HTTP requests.",
+    correctAnswer: "Contextual bundles and cross-sells",
+    explanation: "Well-placed bundles increase cart size without friction.",
   },
   {
-    question: "What is the purpose of version control?",
+    question: `What is the primary goal of a loyalty program in ${quizIndustry}?`,
     options: [
-      "To delete old files",
-      "To track changes and collaborate on code",
-      "To compile code",
-      "To optimize performance",
+      "Increase repeat purchase frequency",
+      "Consume more server bandwidth",
+      "Reduce warehouse space",
+      "Slow delivery times",
     ],
-    correctAnswer: "To track changes and collaborate on code",
-    explanation:
-      "Version control systems like Git help teams track code changes, collaborate, and revert to previous versions if needed.",
+    correctAnswer: "Increase repeat purchase frequency",
+    explanation: "Loyalty programs aim to lift retention and purchase cadence.",
   },
   {
-    question: "Which is NOT a benefit of using microservices?",
+    question: `Which A/B test metric best shows checkout UX improvement in ${quizIndustry}?`,
     options: [
-      "Independent deployability",
-      "Easier debugging",
-      "Technology flexibility",
-      "Reduced complexity",
+      "Checkout completion rate",
+      "CSS file size",
+      "Number of log statements",
+      "CI build duration",
     ],
-    correctAnswer: "Reduced complexity",
-    explanation:
-      "While microservices offer many benefits, they generally increase overall system complexity compared to monolithic applications.",
+    correctAnswer: "Checkout completion rate",
+    explanation: "It directly measures successful conversions through checkout.",
   },
   {
-    question: "What is continuous integration (CI)?",
+    question: `What operational change most reduces returns in ${quizIndustry}?`,
     options: [
-      "Manual testing",
-      "Automating code integration and testing",
-      "Writing documentation",
-      "Code review only",
+      "Clear sizing/fit guidance and photos",
+      "Fewer product details",
+      "Removing customer reviews",
+      "Slower customer support responses",
     ],
-    correctAnswer: "Automating code integration and testing",
-    explanation:
-      "CI is a practice where code changes are automatically integrated and tested frequently, catching issues early.",
+    correctAnswer: "Clear sizing/fit guidance and photos",
+    explanation: "Accurate expectations reduce mismatches and returns.",
   },
   {
-    question: "What does the CAP Theorem state about distributed systems?",
-    options: [
-      "All systems must have high capacity",
-      "You can have Consistency, Availability, and Partition tolerance simultaneously",
-      "You can have at most two of: Consistency, Availability, Partition tolerance",
-      "Nodes must communicate constantly",
-    ],
-    correctAnswer:
-      "You can have at most two of: Consistency, Availability, Partition tolerance",
-    explanation:
-      "The CAP Theorem states that distributed systems can guarantee only two of: consistency, availability, and partition tolerance.",
+    question: `Which channel is typically most measurable for ROAS in ${quizIndustry}?`,
+    options: ["Paid search", "Office signage", "Random cold calls", "Untracked flyers"],
+    correctAnswer: "Paid search",
+    explanation: "Search ads provide strong intent signals and clear attribution.",
   },
-];
+  {
+    question: `What inventory approach best prevents stockouts in ${quizIndustry}?`,
+    options: [
+      "Demand forecasting with safety stock",
+      "Ignoring seasonality",
+      "Single-supplier reliance",
+      "No reorder thresholds",
+    ],
+    correctAnswer: "Demand forecasting with safety stock",
+    explanation: "Forecasting plus buffers keeps popular items available.",
+  },
+].map((q) => ({ ...q, industry: quizIndustry, fallback: true }));
 
 export async function generateQuiz(selectedIndustry) {
   const { userId } = await auth();
@@ -191,11 +191,9 @@ export async function generateQuiz(selectedIndustry) {
   } catch (error) {
     console.error("Error generating industry-specific quiz:", error);
 
-    return fallbackQuestions.map((question) => ({
-      ...question,
-      question: `[${quizIndustry}] ${question.question}`,
-      explanation: `${question.explanation} This fallback question set is currently labeled for ${quizIndustry}.`,
-      industry: quizIndustry,
+    return shuffleArray(buildFallbackQuestions(quizIndustry)).map((q) => ({
+      ...q,
+      options: shuffleArray(q.options),
     }));
   }
 }
