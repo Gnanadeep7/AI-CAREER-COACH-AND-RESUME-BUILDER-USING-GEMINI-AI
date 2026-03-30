@@ -27,7 +27,7 @@ import html2pdf from "html2pdf.js/dist/html2pdf.min.js";
 
 export default function ResumeBuilder({ initialContent }) {
   const [activeTab, setActiveTab] = useState("edit");
-  const [previewContent, setPreviewContent] = useState(initialContent);
+  const [previewContent, setPreviewContent] = useState(initialContent || "");
   const { user } = useUser();
   const [resumeMode, setResumeMode] = useState("preview");
 
@@ -67,9 +67,9 @@ export default function ResumeBuilder({ initialContent }) {
   useEffect(() => {
     if (activeTab === "edit") {
       const newContent = getCombinedContent();
-      setPreviewContent(newContent ? newContent : initialContent);
+      setPreviewContent(newContent || initialContent || "");
     }
-  }, [formValues, activeTab]);
+  }, [formValues, activeTab, initialContent]);
 
   // Handle save result
   useEffect(() => {
@@ -139,11 +139,17 @@ export default function ResumeBuilder({ initialContent }) {
         .replace(/\n\s*\n/g, "\n\n") // Normalize multiple newlines to double newlines
         .trim();
 
-      console.log(previewContent, formattedContent);
-      await saveResumeFn(previewContent);
+      await saveResumeFn({
+        content: formattedContent,
+        data,
+      });
     } catch (error) {
       console.error("Save error:", error);
     }
+  };
+
+  const onInvalidSubmit = () => {
+    toast.error("Fill all mandatory resume fields before saving");
   };
 
   return (
@@ -155,7 +161,7 @@ export default function ResumeBuilder({ initialContent }) {
         <div className="space-x-2">
           <Button
             variant="destructive"
-            onClick={handleSubmit(onSubmit)}
+            onClick={handleSubmit(onSubmit, onInvalidSubmit)}
             disabled={isSaving}
           >
             {isSaving ? (
@@ -193,7 +199,14 @@ export default function ResumeBuilder({ initialContent }) {
         </TabsList>
 
         <TabsContent value="edit">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+          <form
+            onSubmit={handleSubmit(onSubmit, onInvalidSubmit)}
+            className="space-y-8"
+          >
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
+              Mandatory fields: email, professional summary, skills, at least
+              one work experience entry, and at least one education entry.
+            </div>
             {/* Contact Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Contact Information</h3>

@@ -60,8 +60,10 @@ export const resumeSchema = z.object({
   contactInfo: contactSchema,
   summary: z.string().min(1, "Professional summary is required"),
   skills: z.string().min(1, "Skills are required"),
-  experience: z.array(entrySchema),
-  education: z.array(entrySchema),
+  experience: z
+    .array(entrySchema)
+    .min(1, "Add at least one work experience entry"),
+  education: z.array(entrySchema).min(1, "Add at least one education entry"),
   projects: z.array(entrySchema),
 });
 

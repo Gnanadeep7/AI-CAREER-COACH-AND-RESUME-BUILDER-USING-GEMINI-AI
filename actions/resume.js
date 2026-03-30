@@ -1,5 +1,6 @@
 "use server";
 
+import { resumeSchema } from "@/app/lib/schema";
 import { db } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
@@ -8,9 +9,19 @@ import { revalidatePath } from "next/cache";
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
-export async function saveResume(content) {
+export async function saveResume({ content, data }) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
+
+  const validationResult = resumeSchema.safeParse(data);
+  if (!validationResult.success) {
+    throw new Error("Please complete all mandatory resume fields before saving");
+  }
+
+  const trimmedContent = content?.trim();
+  if (!trimmedContent) {
+    throw new Error("Resume content is required");
+  }
 
   const user = await db.user.findUnique({
     where: { clerkUserId: userId },
@@ -24,11 +35,11 @@ export async function saveResume(content) {
         userId: user.id,
       },
       update: {
-        content,
+        content: trimmedContent,
       },
       create: {
         userId: user.id,
-        content,
+        content: trimmedContent,
       },
     });
 
