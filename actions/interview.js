@@ -5,7 +5,7 @@ import { auth } from "@clerk/nextjs/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
 export async function generateQuiz() {
   const { userId } = await auth();
@@ -21,40 +21,71 @@ export async function generateQuiz() {
 
   if (!user) throw new Error("User not found");
 
-  const prompt = `
-    Generate 10 technical interview questions for a ${
-      user.industry
-    } professional${
-    user.skills?.length ? ` with expertise in ${user.skills.join(", ")}` : ""
-  }.
-    
-    Each question should be multiple choice with 4 options.
-    
-    Return the response in this JSON format only, no additional text:
+  // Using mock quiz data - replace with real Gemini API when model access is available
+  const mockQuestions = [
     {
-      "questions": [
-        {
-          "question": "string",
-          "options": ["string", "string", "string", "string"],
-          "correctAnswer": "string",
-          "explanation": "string"
-        }
-      ]
+      question: "What is a key principle in software development?",
+      options: ["DRY (Don't Repeat Yourself)", "WET (Write Everything Twice)", "CHAOS (Code by Haphazard)", "MESS (Make Each Section Separate)"],
+      correctAnswer: "DRY (Don't Repeat Yourself)",
+      explanation: "DRY is a fundamental principle that encourages code reuse and reduces redundancy, making code more maintainable."
+    },
+    {
+      question: "Which design pattern is used to create a single instance of a class?",
+      options: ["Factory", "Singleton", "Observer", "Adapter"],
+      correctAnswer: "Singleton",
+      explanation: "The Singleton pattern ensures that a class has only one instance and provides a global point of access to it."
+    },
+    {
+      question: "What does SOLID stand for in software architecture?",
+      options: ["Structured, Organized, Logical, Integrated, Designed", "Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion", "Simple, Optional, Linear, Immediate, Dynamic", "Scalable, Optimized, Low-cost, Integrated, Distributed"],
+      correctAnswer: "Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion",
+      explanation: "SOLID is a set of five design principles that help make software more maintainable, flexible, and scalable."
+    },
+    {
+      question: "What is the primary benefit of unit testing?",
+      options: ["Increases code lines", "Catches bugs early", "Slows development", "Makes code slower"],
+      correctAnswer: "Catches bugs early",
+      explanation: "Unit testing helps identify and fix bugs early in the development process, reducing costs and improving quality."
+    },
+    {
+      question: "Which of the following best describes refactoring?",
+      options: ["Adding new features", "Improving code structure without changing behavior", "Rewriting from scratch", "Deleting old code"],
+      correctAnswer: "Improving code structure without changing behavior",
+      explanation: "Refactoring is the process of restructuring code to improve readability and maintainability while preserving functionality."
+    },
+    {
+      question: "What does REST stand for?",
+      options: ["Remote Execution Service Technology", "Representational State Transfer", "Rapid Electronic Software Transfer", "Resource Execution and Service Technology"],
+      correctAnswer: "Representational State Transfer",
+      explanation: "REST is an architectural style for designing networked applications using HTTP requests."
+    },
+    {
+      question: "What is the purpose of version control?",
+      options: ["To delete old files", "To track changes and collaborate on code", "To compile code", "To optimize performance"],
+      correctAnswer: "To track changes and collaborate on code",
+      explanation: "Version control systems like Git help teams track code changes, collaborate, and revert to previous versions if needed."
+    },
+    {
+      question: "Which is NOT a benefit of using microservices?",
+      options: ["Independent deployability", "Easier debugging", "Technology flexibility", "Reduced complexity"],
+      correctAnswer: "Reduced complexity",
+      explanation: "While microservices offer many benefits, they generally increase overall system complexity compared to monolithic applications."
+    },
+    {
+      question: "What is continuous integration (CI)?",
+      options: ["Manual testing", "Automating code integration and testing", "Writing documentation", "Code review only"],
+      correctAnswer: "Automating code integration and testing",
+      explanation: "CI is a practice where code changes are automatically integrated and tested frequently, catching issues early."
+    },
+    {
+      question: "What does the CAP Theorem state about distributed systems?",
+      options: ["All systems must have high capacity", "You can have Consistency, Availability, and Partition tolerance simultaneously", "You can have at most two of: Consistency, Availability, Partition tolerance", "Nodes must communicate constantly"],
+      correctAnswer: "You can have at most two of: Consistency, Availability, Partition tolerance",
+      explanation: "The CAP Theorem states that distributed systems can guarantee only two of: consistency, availability, and partition tolerance."
     }
-  `;
+  ];
 
-  try {
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = response.text();
-    const cleanedText = text.replace(/```(?:json)?\n?/g, "").trim();
-    const quiz = JSON.parse(cleanedText);
-
-    return quiz.questions;
-  } catch (error) {
-    console.error("Error generating quiz:", error);
-    throw new Error("Failed to generate quiz questions");
-  }
+  return mockQuestions;
 }
 
 export async function saveQuizResult(questions, answers, score) {
