@@ -5,8 +5,11 @@ import { Toaster } from "sonner";
 import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
 import { dark } from "@clerk/themes";
+import React from "react";
 
 const inter = Inter({ subsets: ["latin"] });
+const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const RootProvider = clerkPublishableKey ? ClerkProvider : React.Fragment;
 
 export const metadata = {
   title: "AI Career Coach",
@@ -15,10 +18,15 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <ClerkProvider
-      appearance={{
-        baseTheme: dark,
-      }}
+    <RootProvider
+      {...(clerkPublishableKey
+        ? {
+            publishableKey: clerkPublishableKey,
+            appearance: {
+              baseTheme: dark,
+            },
+          }
+        : {})}
     >
       <html lang="en" suppressHydrationWarning>
         <head>
@@ -43,6 +51,6 @@ export default function RootLayout({ children }) {
           </ThemeProvider>
         </body>
       </html>
-    </ClerkProvider>
+    </RootProvider>
   );
 }
