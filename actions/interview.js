@@ -11,6 +11,21 @@ if (!process.env.GEMINI_API_KEY) {
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
+const safeParseJson = (text) => {
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    return null;
+  }
+};
+
+const extractFirstJson = (text) => {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) return text;
+  return text.slice(start, end + 1);
+};
+
 const shuffleArray = (arr) => {
   const copy = [...arr];
   for (let i = copy.length - 1; i > 0; i--) {
@@ -174,14 +189,20 @@ export async function generateQuiz(selectedIndustry) {
   try {
     const result = await model.generateContent(prompt);
     const responseText = result.response.text().trim();
-    const cleanedText = responseText
-      .replace(/```json/g, "")
+
+    const cleaned = responseText
+      .replace(/```json/gi, "")
       .replace(/```/g, "")
       .trim();
-    const parsed = JSON.parse(cleanedText);
 
-    if (!Array.isArray(parsed.questions) || parsed.questions.length === 0) {
-      throw new Error("Invalid quiz format");
+    // Try strict JSON first
+    const parsed =
+      safeParseJson(cleaned) ||
+      // Fallback: try to extract first JSON object in the string
+      safeParseJson(extractFirstJson(cleaned));
+
+    if (!parsed || !Array.isArray(parsed.questions) || parsed.questions.length === 0) {
+      throw new Error("Quiz JSON missing or empty");
     }
 
     return parsed.questions.slice(0, 10).map((question) => ({
