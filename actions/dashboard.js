@@ -60,3 +60,65 @@ export async function getIndustryInsights() {
 
   return user.industryInsight;
 }
+
+const parseList = (value) => {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string") return [];
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
+export async function updateIndustryInsights(payload) {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
+
+  const baseUser = await checkUser();
+  if (!baseUser?.industry) throw new Error("User industry not set");
+
+  let salaryRangesParsed;
+  try {
+    salaryRangesParsed =
+      typeof payload.salaryRanges === "string"
+        ? JSON.parse(payload.salaryRanges)
+        : payload.salaryRanges;
+  } catch (error) {
+    throw new Error("Salary ranges must be valid JSON");
+  }
+
+  if (!Array.isArray(salaryRangesParsed) || salaryRangesParsed.length === 0) {
+    throw new Error("Salary ranges must be a non-empty array");
+  }
+
+  const nextUpdate =
+    payload.nextUpdate && !Number.isNaN(Date.parse(payload.nextUpdate))
+      ? new Date(payload.nextUpdate)
+      : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  const growthRateNumber = Number(payload.growthRate);
+  if (Number.isNaN(growthRateNumber)) {
+    throw new Error("Growth rate must be a number");
+  }
+
+  const updateData = {
+    salaryRanges: salaryRangesParsed,
+    growthRate: growthRateNumber,
+    demandLevel: payload.demandLevel || "Medium",
+    marketOutlook: payload.marketOutlook || "Neutral",
+    topSkills: parseList(payload.topSkills),
+    keyTrends: parseList(payload.keyTrends),
+    recommendedSkills: parseList(payload.recommendedSkills),
+    lastUpdated: new Date(),
+    nextUpdate,
+    industry: baseUser.industry,
+  };
+
+  const insight = await db.industryInsight.upsert({
+    where: { industry: baseUser.industry },
+    update: updateData,
+    create: updateData,
+  });
+
+  return insight;
+}

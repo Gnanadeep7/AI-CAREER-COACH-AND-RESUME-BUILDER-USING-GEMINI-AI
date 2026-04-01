@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -27,15 +27,79 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import useFetch from "@/hooks/use-fetch";
+import { updateIndustryInsights } from "@/actions/dashboard";
 
 const DashboardView = ({ insights }) => {
+  const [currentInsights, setCurrentInsights] = useState(insights);
+  const [open, setOpen] = useState(false);
+
+  const [form, setForm] = useState({
+    salaryRanges: JSON.stringify(insights.salaryRanges, null, 2),
+    growthRate: insights.growthRate,
+    demandLevel: insights.demandLevel,
+    marketOutlook: insights.marketOutlook,
+    topSkills: insights.topSkills.join(", "),
+    keyTrends: insights.keyTrends.join(", "),
+    recommendedSkills: insights.recommendedSkills.join(", "),
+    nextUpdate: insights.nextUpdate
+      ? new Date(insights.nextUpdate).toISOString()
+      : "",
+  });
+
+  const { loading, data: updated, fn: updateInsights } =
+    useFetch(updateIndustryInsights);
+
+  useEffect(() => {
+    if (!updated) return;
+    setCurrentInsights(updated);
+    setOpen(false);
+    toast.success("Industry insights updated");
+    setForm({
+      salaryRanges: JSON.stringify(updated.salaryRanges, null, 2),
+      growthRate: updated.growthRate,
+      demandLevel: updated.demandLevel,
+      marketOutlook: updated.marketOutlook,
+      topSkills: updated.topSkills.join(", "),
+      keyTrends: updated.keyTrends.join(", "),
+      recommendedSkills: updated.recommendedSkills.join(", "),
+      nextUpdate: updated.nextUpdate
+        ? new Date(updated.nextUpdate).toISOString()
+        : "",
+    });
+  }, [updated]);
+
   // Transform salary data for the chart
-  const salaryData = insights.salaryRanges.map((range) => ({
-    name: range.role,
-    min: range.min / 1000,
-    max: range.max / 1000,
-    median: range.median / 1000,
-  }));
+  const salaryData = useMemo(
+    () =>
+      currentInsights.salaryRanges.map((range) => ({
+        name: range.role,
+        min: range.min / 1000,
+        max: range.max / 1000,
+        median: range.median / 1000,
+      })),
+    [currentInsights.salaryRanges]
+  );
 
   const getDemandLevelColor = (level) => {
     switch (level.toLowerCase()) {
@@ -63,13 +127,16 @@ const DashboardView = ({ insights }) => {
     }
   };
 
-  const OutlookIcon = getMarketOutlookInfo(insights.marketOutlook).icon;
-  const outlookColor = getMarketOutlookInfo(insights.marketOutlook).color;
+  const OutlookIcon = getMarketOutlookInfo(currentInsights.marketOutlook).icon;
+  const outlookColor = getMarketOutlookInfo(currentInsights.marketOutlook).color;
 
   // Format dates using date-fns
-  const lastUpdatedDate = format(new Date(insights.lastUpdated), "dd/MM/yyyy");
+  const lastUpdatedDate = format(
+    new Date(currentInsights.lastUpdated),
+    "dd/MM/yyyy"
+  );
   const nextUpdateDistance = formatDistanceToNow(
-    new Date(insights.nextUpdate),
+    new Date(currentInsights.nextUpdate),
     { addSuffix: true }
   );
 
@@ -77,6 +144,149 @@ const DashboardView = ({ insights }) => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <Badge variant="outline">Last updated: {lastUpdatedDate}</Badge>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm">
+              Edit insights
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Industry Insights</DialogTitle>
+              <DialogDescription>
+                Update the data shown on your dashboard. Lists accept
+                comma-separated values. Salary ranges expect JSON.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Salary ranges (JSON)</label>
+                <Textarea
+                  value={form.salaryRanges}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, salaryRanges: e.target.value }))
+                  }
+                  rows={8}
+                  className="font-mono text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Growth rate (%)</label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={form.growthRate}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, growthRate: e.target.value }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Demand level</label>
+                  <Select
+                    value={form.demandLevel}
+                    onValueChange={(value) =>
+                      setForm((f) => ({ ...f, demandLevel: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select demand" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="High">High</SelectItem>
+                      <SelectItem value="Medium">Medium</SelectItem>
+                      <SelectItem value="Low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Market outlook</label>
+                  <Select
+                    value={form.marketOutlook}
+                    onValueChange={(value) =>
+                      setForm((f) => ({ ...f, marketOutlook: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select outlook" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Positive">Positive</SelectItem>
+                      <SelectItem value="Neutral">Neutral</SelectItem>
+                      <SelectItem value="Negative">Negative</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Next update date</label>
+                  <Input
+                    type="date"
+                    value={form.nextUpdate ? form.nextUpdate.slice(0, 10) : ""}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, nextUpdate: e.target.value }))
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Top skills</label>
+                  <Input
+                    value={form.topSkills}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, topSkills: e.target.value }))
+                    }
+                    placeholder="React, Node, SQL"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Recommended skills</label>
+                  <Input
+                    value={form.recommendedSkills}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        recommendedSkills: e.target.value,
+                      }))
+                    }
+                    placeholder="AI/ML, Cloud"
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-sm font-medium">Key trends</label>
+                  <Textarea
+                    value={form.keyTrends}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, keyTrends: e.target.value }))
+                    }
+                    placeholder="Remote work, Edge computing"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="mt-4">
+              <Button variant="outline" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => updateInsights(form)}
+                disabled={loading}
+              >
+                {loading ? "Saving..." : "Save changes"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Market Overview Cards */}
@@ -89,7 +299,9 @@ const DashboardView = ({ insights }) => {
             <OutlookIcon className={`h-4 w-4 ${outlookColor}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{insights.marketOutlook}</div>
+            <div className="text-2xl font-bold">
+              {currentInsights.marketOutlook}
+            </div>
             <p className="text-xs text-muted-foreground">
               Next update {nextUpdateDistance}
             </p>
@@ -105,9 +317,9 @@ const DashboardView = ({ insights }) => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {insights.growthRate.toFixed(1)}%
+              {currentInsights.growthRate.toFixed(1)}%
             </div>
-            <Progress value={insights.growthRate} className="mt-2" />
+            <Progress value={currentInsights.growthRate} className="mt-2" />
           </CardContent>
         </Card>
 
@@ -117,10 +329,12 @@ const DashboardView = ({ insights }) => {
             <BriefcaseIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{insights.demandLevel}</div>
+            <div className="text-2xl font-bold">
+              {currentInsights.demandLevel}
+            </div>
             <div
               className={`h-2 w-full rounded-full mt-2 ${getDemandLevelColor(
-                insights.demandLevel
+                currentInsights.demandLevel
               )}`}
             />
           </CardContent>
@@ -133,7 +347,7 @@ const DashboardView = ({ insights }) => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-1">
-              {insights.topSkills.map((skill) => (
+              {currentInsights.topSkills.map((skill) => (
                 <Badge key={skill} variant="secondary">
                   {skill}
                 </Badge>
@@ -212,7 +426,7 @@ const DashboardView = ({ insights }) => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
-              {insights.recommendedSkills.map((skill) => (
+              {currentInsights.recommendedSkills.map((skill) => (
                 <Badge key={skill} variant="outline">
                   {skill}
                 </Badge>
